@@ -1,0 +1,2293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pool Orders 2026 — Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --surface-2: #f1efe8;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.15);
+    --text: #1f1f1d;
+    --text-2: #5f5e5a;
+    --text-3: #888780;
+    --primary: #185fa5;
+    --success: #3b6d11;
+    --warning: #854f0b;
+    --danger: #a32d2d;
+    --info-bg: #e6f1fb;
+    --success-bg: #eaf3de;
+    --warning-bg: #faeeda;
+    --danger-bg: #fcebeb;
+    --purple: #534ab7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2px dashed var(--border-strong);
+    border-radius: 12px;
+    padding: 60px 24px;
+    text-align: center;
+    background: var(--surface);
+    transition: all 0.2s;
+    cursor: pointer;
+    margin: 80px auto;
+    max-width: 600px;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--primary);
+    background: var(--info-bg);
+  }
+  .dropzone h2 { margin: 0 0 8px; font-weight: 500; font-size: 20px; }
+  .dropzone p { margin: 0; color: var(--text-2); font-size: 13px; }
+  .dropzone input { display: none; }
+  .dropzone-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .header h1 { margin: 0; font-size: 22px; font-weight: 500; }
+  .header .meta { font-size: 12px; color: var(--text-2); margin-top: 4px; }
+  .header-actions { display: flex; gap: 8px; }
+  .btn {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text);
+    font-family: inherit;
+  }
+  .btn:hover { background: var(--surface-2); }
+
+  /* Filters bar */
+  .filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    padding: 12px;
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .filter {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .filter label {
+    font-size: 10px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+  .filter select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    color: var(--text);
+    font-family: inherit;
+    min-width: 110px;
+    cursor: pointer;
+  }
+  .filter select:focus { outline: 1px solid var(--primary); }
+  .clear-filters {
+    align-self: flex-end;
+    margin-left: auto;
+  }
+
+  /* Section headers */
+  .section-label {
+    font-size: 10px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 500;
+    margin: 0 0 10px;
+  }
+
+  /* KPI grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .kpi {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 14px 16px;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+  .kpi.clickable { cursor: pointer; }
+  .kpi.clickable:hover { background: var(--info-bg); border-color: var(--primary); }
+  .kpi.active { background: var(--info-bg); border-color: var(--primary); }
+  .kpi-label { font-size: 11px; color: var(--text-2); margin: 0; }
+  .kpi-value { font-size: 26px; font-weight: 500; margin: 4px 0 2px; line-height: 1.1; }
+  .kpi-value .unit { font-size: 13px; color: var(--text-2); font-weight: 400; }
+  .kpi-sub { font-size: 11px; margin: 0; color: var(--text-2); }
+  .kpi-sub.success { color: var(--success); }
+  .kpi-sub.warning { color: var(--warning); }
+  .kpi-sub.danger { color: var(--danger); }
+
+  /* Cost KPI grid - smaller cards specific for cost section */
+  .cost-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+  }
+  .cost-kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .cost-kpi-label { font-size: 10.5px; color: var(--text-2); margin: 0; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 500; }
+  .cost-kpi-value { font-size: 22px; font-weight: 500; margin: 4px 0 2px; line-height: 1.1; color: var(--text); }
+  .cost-kpi-sub { font-size: 11px; margin: 0; color: var(--text-3); }
+
+  /* Active filter chips */
+  .active-filters {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+  .active-filters:empty { display: none; }
+  .active-filters-label {
+    font-size: 11px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+  .filter-chip {
+    background: var(--info-bg);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    border-radius: 14px;
+    padding: 3px 10px 3px 10px;
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .filter-chip:hover { background: #d4e8f8; }
+  .filter-chip .x { font-size: 14px; line-height: 1; opacity: 0.7; }
+  .filter-chip:hover .x { opacity: 1; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 500;
+    margin: 0 0 12px;
+    color: var(--text);
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-2-13 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 900px) {
+    .grid-2, .grid-2-13 { grid-template-columns: 1fr; }
+  }
+
+  /* Watch list table */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th {
+    text-align: left;
+    font-weight: 500;
+    padding: 8px 6px;
+    color: var(--text-2);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  th:hover { color: var(--text); }
+  th.sorted::after { content: " ↓"; color: var(--primary); }
+  th.sorted-asc::after { content: " ↑"; color: var(--primary); }
+  td { padding: 7px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface-2); }
+  td.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Semaphore dot for days on loan */
+  .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .dot-ok { background: var(--success); }
+  .dot-warn { background: var(--warning); }
+  .dot-bad { background: var(--danger); }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .badge-aog { background: var(--danger-bg); color: var(--danger); }
+  .badge-ior { background: var(--info-bg); color: var(--primary); }
+  .badge-preload { background: var(--warning-bg); color: var(--warning); }
+  .badge-routine { background: var(--success-bg); color: var(--success); }
+  .badge-canceled { background: #ececec; color: var(--text-2); }
+  .badge-open { background: var(--info-bg); color: var(--primary); }
+  .badge-closed { background: var(--success-bg); color: var(--success); }
+  .badge-transit { background: #eeedfe; color: #3c3489; border: 1px solid #afa9ec; }
+  .badge-ok { background: var(--success-bg); color: var(--success); }
+  .badge-warn { background: var(--warning-bg); color: var(--warning); }
+  .badge-bad { background: var(--danger-bg); color: var(--danger); }
+
+  /* Quality flags */
+  .flag-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 700px) {
+    .flag-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .flag {
+    text-align: left;
+    padding: 4px 0;
+    cursor: help;
+  }
+  .flag-name { font-size: 11px; color: var(--text-2); margin: 0; }
+  .flag-pct { font-size: 22px; font-weight: 500; margin: 2px 0; line-height: 1.1; }
+  .flag-pct.warn { color: var(--warning); }
+  .flag-pct.bad { color: var(--danger); }
+  .flag-abs { font-size: 11px; color: var(--text-3); margin: 0; }
+
+  /* Heatmap */
+  .heatmap { width: 100%; font-size: 11px; }
+  .heatmap th { text-align: center; padding: 6px 4px; font-weight: 500; color: var(--text-2); border-bottom: 1px solid var(--border); cursor: default; }
+  .heatmap th:first-child { text-align: left; }
+  .heatmap th:hover { color: var(--text-2); }
+  .heatmap td { padding: 0; border: none; }
+  .heatmap td:first-child { padding: 6px 4px; color: var(--text); font-size: 11px; }
+  .heatmap .pn-cell { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .heatmap .pn-desc { color: var(--text-3); font-size: 10px; margin-left: 4px; }
+  .hm-cell {
+    display: flex; align-items: center; justify-content: center;
+    height: 28px; margin: 1px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .hm-cell.clickable { cursor: pointer; transition: all 0.15s; }
+  .hm-cell.clickable:hover { transform: scale(1.05); outline: 1px solid var(--primary); }
+
+  /* Chart wrapper makes Chart.js elements clickable */
+  .chart-wrapper canvas, .chart-wrapper-tall canvas { cursor: pointer; }
+
+  /* Chart wrapper */
+  .chart-wrapper { position: relative; width: 100%; height: 240px; }
+  .chart-wrapper-tall { position: relative; width: 100%; height: 280px; }
+
+  /* Raw data table */
+  .raw-section { margin-top: 28px; }
+  .raw-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .raw-toolbar input {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    flex: 1;
+    max-width: 280px;
+  }
+  .raw-toolbar input:focus { outline: 1px solid var(--primary); border-color: var(--primary); }
+  .raw-count { font-size: 11px; color: var(--text-2); }
+  .raw-table-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0;
+    overflow-x: auto;
+    max-height: 600px;
+    overflow-y: auto;
+  }
+  .raw-table { font-size: 11px; }
+  .raw-table th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 1;
+    padding: 8px 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  .raw-table td { padding: 6px 8px; white-space: nowrap; }
+  .raw-table tr:hover td { background: var(--surface-2); }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-3);
+    font-size: 13px;
+  }
+
+  .footer-note {
+    text-align: center;
+    color: var(--text-3);
+    font-size: 11px;
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Drop zone (visible until file loaded) -->
+  <div id="dropzone" class="dropzone">
+    <div class="dropzone-icon">📊</div>
+    <h2>Pool orders dashboard</h2>
+    <button class="btn" id="load-sp-btn" style="background: var(--primary); color: white; border-color: var(--primary); padding: 10px 20px; font-size: 14px; margin: 12px 0;">📡 Cargar desde SharePoint</button>
+    <p style="margin: 16px 0 8px; color: var(--text-3); font-size: 12px;">— o —</p>
+    <p style="margin-bottom: 8px;">Arrastrá aquí <strong>POOL ORDERS 2026.xlsx</strong> o hacé click para seleccionarlo</p>
+    <p style="font-size: 11px; color: var(--text-3);">El archivo se procesa en tu navegador — nada se sube a internet</p>
+    <p id="sp-status" style="font-size: 11px; margin-top: 12px;"></p>
+    <p id="sp-hint" style="font-size: 11px; color: var(--warning); margin-top: 8px; display: none;"></p>
+    <input type="file" id="file-input" accept=".xlsx,.xlsm">
+  </div>
+
+  <!-- Dashboard (hidden until file loaded) -->
+  <div id="dashboard" style="display: none;">
+
+    <div class="header">
+      <div>
+        <h1>Pool orders 2026 — dashboard</h1>
+        <div class="meta" id="meta">—</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn" id="refresh-sp-btn" title="Vuelve a descargar el Excel desde SharePoint" style="background: var(--info-bg); color: var(--primary); border-color: var(--primary);">🔄 Actualizar desde SharePoint</button>
+        <button class="btn" id="export-btn" title="Genera un HTML autocontenido con los datos embebidos para enviar por email">📤 Exportar reporte</button>
+        <button class="btn" id="reload-btn">Cargar otro archivo</button>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters" id="filters">
+      <div class="filter"><label>Status</label><select data-filter="STATUS"><option value="">Todos</option></select></div>
+      <div class="filter"><label>Priority</label><select data-filter="PRIORITY"><option value="">Todas</option></select></div>
+      <div class="filter"><label>Aircraft</label><select data-filter="AIRCRAFT"><option value="">Todos</option></select></div>
+      <div class="filter"><label>A/C Reg</label><select data-filter="ACREG"><option value="">Todas</option></select></div>
+      <div class="filter"><label>Station</label><select data-filter="STATION"><option value="">Todas</option></select></div>
+      <div class="filter"><label>Forwarder</label><select data-filter="FWD"><option value="">Todos</option></select></div>
+      <div class="filter"><label>Mes</label><select data-filter="MONTH"><option value="">Todos</option></select></div>
+      <div class="filter"><label>Componente</label><select data-filter="DESCRIPTION"><option value="">Todos</option></select></div>
+      <div class="filter"><label>TAT bucket</label><select data-filter="TATBUCKET"><option value="">Todos</option></select></div>
+      <div class="filter clear-filters">
+        <button class="btn" id="clear-filters-btn">Limpiar</button>
+      </div>
+    </div>
+
+    <!-- Active filter chips -->
+    <div class="active-filters" id="active-filters"></div>
+
+    <!-- KPIs -->
+    <p class="section-label">Vista ejecutiva <span style="color: var(--text-3); text-transform: none; letter-spacing: 0; font-weight: 400;">— click en un indicador o gráfico para filtrar</span></p>
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <!-- Watch list -->
+    <p class="section-label">Watch list — órdenes activas (open + in transit, próximas a vencer primero)</p>
+    <div class="card" style="padding: 0;">
+      <div id="watchlist"></div>
+    </div>
+
+    <!-- Pipeline -->
+    <p class="section-label" style="margin-top: 20px;">Pipeline — órdenes pendientes de despacho (no cuentan en KPIs operativos)</p>
+    <div class="card" style="padding: 0;">
+      <div id="pipeline-list"></div>
+    </div>
+
+    <!-- Charts row 1 -->
+    <div class="grid-2" style="margin-top: 24px;">
+      <div>
+        <p class="section-label">Volumen mensual × prioridad</p>
+        <div class="card">
+          <div class="chart-wrapper"><canvas id="chart-monthly" role="img" aria-label="Stacked bars by month and priority"></canvas></div>
+        </div>
+      </div>
+      <div>
+        <p class="section-label">Distribución TAT (días en préstamo)</p>
+        <div class="card">
+          <div class="chart-wrapper"><canvas id="chart-tat" role="img" aria-label="TAT bucket distribution"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Heatmap (full width) -->
+    <p class="section-label">P/N × A/C Reg (volumen) — click en una celda para filtrar</p>
+    <div class="card">
+      <table class="heatmap" id="heatmap"></table>
+    </div>
+
+    <!-- Quality indicators (full row) -->
+    <p class="section-label">Indicadores de calidad (% sobre devueltas)</p>
+    <div class="card">
+      <div class="flag-grid" id="flags"></div>
+      <p style="font-size: 11px; color: var(--text-3); margin: 12px 0 0;" id="flags-note">—</p>
+    </div>
+
+    <!-- Dispatch quality (Order → Dispatched) -->
+    <p class="section-label" style="margin-top: 24px;">Calidad del despacho — tiempo entre <em>order date</em> y <em>dispatched date</em></p>
+    <div class="grid-2-13">
+      <div>
+        <div class="card">
+          <p class="card-title">On-time dispatch por prioridad <span style="color: var(--text-3); font-weight: 400;">— vs SLA objetivo</span></p>
+          <div id="dispatch-sla-breakdown"></div>
+          <p style="font-size: 11px; color: var(--text-3); margin: 12px 0 0;">SLA: AOG mismo día · IOR ≤2d · ROUTINE ≤5d · PRE LOAD ≤10d</p>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <p class="card-title">Top 5 órdenes más lentas <span style="color: var(--text-3); font-weight: 400;">— pareto de outliers</span></p>
+          <div id="dispatch-outliers"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COSTS SECTION (dedicated, full-width) -->
+    <p class="section-label" style="margin-top: 24px;">💰 Análisis de costos <span style="color: var(--text-3); text-transform: none; letter-spacing: 0; font-weight: 400;">— combina hoja COSTOS con costos de la tabla principal</span></p>
+
+    <!-- Cost mini-KPIs -->
+    <div class="cost-kpi-grid" id="cost-kpi-grid"></div>
+
+    <!-- Cost chart + breakdown by category -->
+    <div class="grid-2-13" style="margin-top: 16px;">
+      <div>
+        <p class="section-label">Coste mensual (€) — apilado por categoría</p>
+        <div class="card">
+          <div class="chart-wrapper"><canvas id="chart-cost" role="img" aria-label="Monthly cost breakdown"></canvas></div>
+        </div>
+      </div>
+      <div>
+        <p class="section-label">Costes por categoría</p>
+        <div class="card">
+          <div class="chart-wrapper"><canvas id="chart-cost-cat" role="img" aria-label="Cost by category"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed cost / invoice table -->
+    <p class="section-label" style="margin-top: 16px;">Detalle de gastos registrados</p>
+    <div class="card" style="padding: 0;">
+      <div class="raw-toolbar" style="border-bottom: 1px solid var(--border);">
+        <input type="text" id="cost-search" placeholder="Buscar en orden, factura, descripción, notas...">
+        <span class="raw-count" id="cost-count">0 gastos</span>
+      </div>
+      <div class="raw-table-wrapper" style="max-height: 400px;">
+        <table class="raw-table" id="cost-table">
+          <thead>
+            <tr>
+              <th>Orden</th>
+              <th>Categoría</th>
+              <th class="num">Importe</th>
+              <th>Moneda</th>
+              <th class="num">Importe €</th>
+              <th>Factura</th>
+              <th>Notas</th>
+              <th>Origen</th>
+            </tr>
+          </thead>
+          <tbody id="cost-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Cost by category + Top P/N -->
+    <!-- Top P/N (full width) -->
+    <p class="section-label">Top 10 P/N solicitados</p>
+    <div class="card">
+      <div class="chart-wrapper-tall"><canvas id="chart-pn" role="img" aria-label="Top part numbers"></canvas></div>
+    </div>
+
+    <!-- Raw data -->
+    <div class="raw-section">
+      <p class="section-label">Listado completo (filas filtradas según los filtros de arriba)</p>
+      <div class="raw-toolbar">
+        <input type="text" id="raw-search" placeholder="Buscar en cualquier campo (P/N, S/N, AWB, descripción...)">
+        <span class="raw-count" id="raw-count">0 filas</span>
+      </div>
+      <div class="raw-table-wrapper">
+        <table class="raw-table">
+          <thead id="raw-thead"></thead>
+          <tbody id="raw-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="footer-note">Data procesada en tu navegador · POOL_ORDERS_2026.xlsx</p>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ============================================================
+// STATE
+// ============================================================
+
+// URL del Excel en SharePoint (link de "Compartir → Personas de la organización")
+// Para que descargue el archivo en lugar de abrir Excel Online, se añade &download=1
+const SHAREPOINT_URL = 'https://acemptyleg.sharepoint.com/:x:/s/MantenimientoGrupo/IQCdZPz9A7kDS4lLnfFMuz7gAQC2eKEKI5xIexWFHOeUSWo?e=isblSE';
+
+const state = {
+  orders: [],
+  costs: [],          // raw entries from COSTOS sheet
+  costLedger: [],     // unified ledger: COSTOS + main-table residuals
+  fxRates: { EUR: 1 },// currency conversion rates from _LISTAS sheet
+  filters: {},
+  rawSearch: '',
+  costSearch: '',
+  rawSort: { col: null, dir: 'asc' },
+  charts: {},
+  fileName: null,
+  workbookData: null  // raw bytes kept in memory so we can re-embed on export
+};
+
+const COLORS = {
+  primary: '#185fa5',
+  success: '#3b6d11',
+  warning: '#854f0b',
+  danger: '#a32d2d',
+  purple: '#534ab7',
+  teal: '#1d9e75',
+  coral: '#d85a30',
+  pink: '#d4537e',
+  gray: '#888780',
+  amber: '#ba7517'
+};
+
+const PRIORITY_COLORS = {
+  'AOG': COLORS.danger,
+  'IOR': COLORS.primary,
+  'PRE LOAD': COLORS.amber,
+  'CRITICAL': COLORS.coral,
+  'ROUTINE': COLORS.success,
+  'CANCELED': COLORS.gray
+};
+
+const COST_CATEGORIES = {
+  'SHIPPING': COLORS.primary,
+  'LATE FEE': COLORS.warning,
+  'BER CORE': COLORS.danger,
+  'IND. DAMAGE': COLORS.coral,
+  'OTHER': COLORS.gray,
+  'OTHERS': COLORS.gray
+};
+
+// SLA de despacho (días) — máximo aceptable entre ORDER DATE y DISPATCHED DTE
+const DISPATCH_SLA = {
+  'AOG': 0,        // mismo día — hay un avión en tierra
+  'CRITICAL': 1,
+  'IOR': 2,
+  'ROUTINE': 5,
+  'PRE LOAD': 10
+};
+function dispatchSlaFor(priority) {
+  return DISPATCH_SLA[priority] != null ? DISPATCH_SLA[priority] : 5;
+}
+
+// ============================================================
+// FILE LOADING
+// ============================================================
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const dashboard = document.getElementById('dashboard');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files.length > 0) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files.length > 0) loadFile(e.target.files[0]);
+});
+document.getElementById('reload-btn').addEventListener('click', () => {
+  dashboard.style.display = 'none';
+  dropzone.style.display = 'block';
+  fileInput.value = '';
+});
+
+// ---- SharePoint load buttons ----
+// Initial load button (in dropzone)
+document.getElementById('load-sp-btn').addEventListener('click', (e) => {
+  e.stopPropagation();  // Prevent dropzone click handler (which opens file picker)
+  loadFromSharePoint(false);
+});
+// Refresh button (in header, after load)
+document.getElementById('refresh-sp-btn').addEventListener('click', () => {
+  loadFromSharePoint(false);
+});
+
+// Auto-load attempt on page open: silently try SharePoint first.
+// If it fails, the dropzone shows the manual options.
+window.addEventListener('load', () => {
+  // Small delay so browser settles, then try silent auto-load
+  setTimeout(() => loadFromSharePoint(true), 200);
+});
+
+// ---- Export self-contained snapshot ----
+document.getElementById('export-btn').addEventListener('click', exportSnapshot);
+
+function exportSnapshot() {
+  if (!state.workbookData) {
+    alert('Primero carga un archivo Excel.');
+    return;
+  }
+  const btn = document.getElementById('export-btn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Generando...';
+
+  // Defer so the button update repaints before the heavy work runs
+  setTimeout(() => {
+    try {
+      // Encode the xlsx bytes as base64
+      let binary = '';
+      const bytes = state.workbookData;
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      const b64 = btoa(binary);
+
+      // Take the current page's full HTML — it has all the styles & scripts already.
+      // We inject a small bootstrap that decodes the embedded xlsx and triggers
+      // the existing parsing pipeline as if the user had dropped the file.
+      const docHtml = document.documentElement.outerHTML;
+
+      // Filename from current Excel + timestamp
+      const baseName = (state.fileName || 'pool_orders').replace(/\.xlsx?$/i, '');
+      const ts = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+      const exportName = `${baseName}_reporte_${ts}.html`;
+
+      // Inject the auto-load script just before </body>.
+      // The bootstrap waits for everything to be ready, then synthesises a File
+      // and feeds it to loadFile() so we reuse 100% of the existing logic.
+      const bootstrap = `
+<script id="__embedded_data__" type="application/octet-stream">${b64}<\/script>
+<script>
+(function() {
+  // Hide the dropzone immediately so users don't see a flash
+  var style = document.createElement('style');
+  style.textContent = '.dropzone { display: none !important; } #export-btn { display: none !important; }';
+  document.head.appendChild(style);
+
+  function start() {
+    try {
+      // Hide buttons that don't make sense in a static snapshot
+      var hideStyle = document.createElement('style');
+      hideStyle.textContent = '#reload-btn, #export-btn { display: none !important; }';
+      document.head.appendChild(hideStyle);
+
+      var b64 = document.getElementById('__embedded_data__').textContent.trim();
+      var bin = atob(b64);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      // Synthesise a File object and call the existing loadFile pipeline
+      var blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      var file = new File([blob], ${JSON.stringify(state.fileName || 'embedded.xlsx')}, { type: blob.type });
+      if (typeof loadFile === 'function') {
+        loadFile(file);
+      } else {
+        document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#a32d2d;">Error: el reporte no pudo inicializarse.</div>';
+      }
+    } catch (err) {
+      console.error('Embedded load failed:', err);
+      document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#a32d2d;">Error al cargar el reporte embebido: ' + err.message + '</div>';
+    }
+  }
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(start, 100);
+  } else {
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(start, 100); });
+  }
+})();
+<\/script>
+</body>`;
+
+      // Replace the closing </body> with our bootstrap. Use a regex that only
+      // matches the LAST </body> to be safe.
+      const finalHtml = docHtml.replace(/<\/body>\s*<\/html>\s*$/i, bootstrap + '</html>');
+
+      // Trigger download
+      const blob = new Blob(['<!DOCTYPE html>\n' + finalHtml], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = exportName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      btn.textContent = '✓ Descargado';
+      setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 2000);
+    } catch (err) {
+      console.error(err);
+      alert('Error al exportar: ' + err.message);
+      btn.textContent = originalLabel;
+      btn.disabled = false;
+    }
+  }, 50);
+}
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array', cellDates: true });
+      // Keep the raw bytes so we can re-embed them on export
+      state.workbookData = data;
+      state.fileName = file.name;
+      parseWorkbook(wb);
+      dropzone.style.display = 'none';
+      dashboard.style.display = 'block';
+      document.getElementById('meta').textContent =
+        `Archivo: ${file.name} · ${state.orders.length} órdenes · cargado ${new Date().toLocaleString('es-ES')}`;
+      initFilters();
+      render();
+    } catch (err) {
+      alert('Error al leer el archivo: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ============================================================
+// SHAREPOINT AUTO-LOAD
+// ============================================================
+async function loadFromSharePoint(silent) {
+  const btn = document.getElementById('refresh-sp-btn');
+  const dzStatus = document.getElementById('sp-status');
+  const setStatus = (msg, isError) => {
+    if (dzStatus) {
+      dzStatus.textContent = msg;
+      dzStatus.style.color = isError ? 'var(--danger)' : 'var(--text-2)';
+    }
+  };
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Cargando...';
+  }
+  setStatus('Conectando con SharePoint...', false);
+
+  try {
+    // Convert sharing URL to direct download URL
+    // SharePoint sharing links: append &download=1 (or ?download=1 if no query string yet)
+    const downloadUrl = SHAREPOINT_URL.includes('?')
+      ? SHAREPOINT_URL + '&download=1'
+      : SHAREPOINT_URL + '?download=1';
+
+    const response = await fetch(downloadUrl, {
+      method: 'GET',
+      credentials: 'include',  // send SharePoint session cookies
+      redirect: 'follow'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} — ${response.statusText}. ¿Has iniciado sesión en Microsoft 365?`);
+    }
+
+    const buffer = await response.arrayBuffer();
+    const data = new Uint8Array(buffer);
+
+    // Validate it's actually an XLSX file (zip starts with PK)
+    if (data[0] !== 0x50 || data[1] !== 0x4B) {
+      throw new Error('La respuesta no es un Excel válido. Probablemente SharePoint pidió login. Abre primero https://acemptyleg.sharepoint.com en otra pestaña, inicia sesión, y vuelve a intentar.');
+    }
+
+    const wb = XLSX.read(data, { type: 'array', cellDates: true });
+    state.workbookData = data;
+    state.fileName = 'POOL ORDERS 2026.xlsx';
+    parseWorkbook(wb);
+
+    dropzone.style.display = 'none';
+    dashboard.style.display = 'block';
+    document.getElementById('meta').textContent =
+      `📡 SharePoint · ${state.orders.length} órdenes · actualizado ${new Date().toLocaleString('es-ES')}`;
+
+    // Init filters only on first load
+    if (!state._filtersInitialized) {
+      initFilters();
+      state._filtersInitialized = true;
+    }
+    render();
+    setStatus('✓ Datos actualizados desde SharePoint', false);
+  } catch (err) {
+    console.error('SharePoint load failed:', err);
+    if (!silent) {
+      setStatus('✗ ' + err.message, true);
+    }
+    // If automatic load failed, fall back to drag & drop UI
+    if (silent) {
+      // Show dropzone with a hint
+      const hint = document.getElementById('sp-hint');
+      if (hint) {
+        hint.style.display = 'block';
+        hint.innerHTML = `<strong>No se pudo cargar desde SharePoint automáticamente.</strong><br>
+          ${esc(err.message)}<br>
+          <span style="color: var(--text-3);">Puedes arrastrar el Excel manualmente o pulsar el botón "Actualizar desde SharePoint" abajo.</span>`;
+      }
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🔄 Actualizar desde SharePoint';
+    }
+  }
+}
+window.loadFromSharePoint = loadFromSharePoint;
+
+// ============================================================
+// PARSING
+// ============================================================
+function parseWorkbook(wb) {
+  // POOL ORDERS 2026 sheet — header is on row 2 (index 1)
+  const ordersSheet = wb.Sheets['POOL ORDERS 2026'];
+  if (!ordersSheet) throw new Error('No se encontró la hoja "POOL ORDERS 2026"');
+
+  // sheet_to_json with range:1 means start at row 2 (where the real header is)
+  const rows = XLSX.utils.sheet_to_json(ordersSheet, { range: 1, defval: null, raw: false });
+  state.orders = rows
+    .filter(r => r.ORDER && String(r.ORDER).trim() !== '')
+    .map(normalizeOrder);
+
+  // FX table from _LISTAS sheet — used to convert AMOUNT to EUR when AMOUNT EUR is missing
+  state.fxRates = { EUR: 1 };  // safe default
+  const listasSheet = wb.Sheets['_LISTAS'];
+  if (listasSheet) {
+    const lRows = XLSX.utils.sheet_to_json(listasSheet, { defval: null, raw: false });
+    lRows.forEach(r => {
+      const ccy = r.CCY ? String(r.CCY).trim().toUpperCase() : null;
+      const fx = num(r['FX → EUR']);
+      if (ccy && fx > 0) state.fxRates[ccy] = fx;
+    });
+  }
+
+  // Helper: resolve the EUR amount of a COSTOS row.
+  // Priority: AMOUNT EUR if present and > 0 → use it.
+  //           Otherwise convert AMOUNT × FX rate for the row's CURRENCY.
+  //           If currency is unknown, fall back to AMOUNT (assumed EUR) and flag it.
+  function resolveAmountEur(r) {
+    const stated = num(r['AMOUNT EUR']);
+    if (stated > 0) return { amount: stated, converted: false, missingFx: false };
+    const raw = num(r.AMOUNT);
+    if (raw <= 0) return { amount: 0, converted: false, missingFx: false };
+    const ccy = r.CURRENCY ? String(r.CURRENCY).trim().toUpperCase() : 'EUR';
+    const fx = state.fxRates[ccy];
+    if (fx > 0) return { amount: raw * fx, converted: true, missingFx: false, fx, ccy };
+    // Unknown currency — keep the raw amount but flag it visibly
+    return { amount: raw, converted: false, missingFx: true, ccy };
+  }
+
+  // COSTOS sheet (detail of invoices)
+  state.costs = [];
+  const costSheet = wb.Sheets['COSTOS'];
+  if (costSheet) {
+    const cRows = XLSX.utils.sheet_to_json(costSheet, { defval: null, raw: false });
+    state.costs = cRows
+      // Accept any row with an ORDER and either AMOUNT or AMOUNT EUR > 0
+      // (previous version rejected rows without AMOUNT EUR — that hid non-EUR rows entirely)
+      .filter(r => r.ORDER && (num(r.AMOUNT) > 0 || num(r['AMOUNT EUR']) > 0))
+      .map(r => {
+        const resolved = resolveAmountEur(r);
+        return {
+          ...r,
+          ORDER: String(r.ORDER).trim(),
+          // Always overwrite AMOUNT EUR with the resolved value so all downstream
+          // code (charts, KPIs, totals) reads a consistent, populated number.
+          'AMOUNT EUR': resolved.amount,
+          _source: 'COSTOS',
+          _cat: normalizeCategory(r['DESCRIPCIÓN GASTO']),
+          _converted: resolved.converted,    // true if we did the FX conversion ourselves
+          _missingFx: resolved.missingFx,    // true if currency unknown — UI will flag it
+          _fxRate: resolved.fx || null,
+          _origCcy: resolved.ccy || (r.CURRENCY ? String(r.CURRENCY).trim().toUpperCase() : null)
+        };
+      });
+  }
+
+  // Build the UNIFIED cost ledger:
+  // - Start from COSTOS sheet entries (most detailed: have invoice, currency, notes)
+  // - For each order, check the totals in the main table (LATE FEE, BER CORE, IND. DAMAGE, SHIPPING COST).
+  //   If the main table has a category total that is NOT already represented in COSTOS for that order,
+  //   add a synthetic ledger entry so the cost is still counted (no silent drops).
+  state.costLedger = [...state.costs];
+
+  state.orders.forEach(o => {
+    const inSheet = state.costs.filter(c => c.ORDER === o.order);
+    const inSheetByCat = {};
+    inSheet.forEach(c => {
+      inSheetByCat[c._cat] = (inSheetByCat[c._cat] || 0) + num(c['AMOUNT EUR']);
+    });
+
+    const mainCats = [
+      { cat: 'SHIPPING',     amount: o.shippingCost },
+      { cat: 'LATE FEE',     amount: o.lateFee },
+      { cat: 'BER CORE',     amount: o.berCore },
+      { cat: 'IND. DAMAGE',  amount: o.indDamage }
+    ];
+
+    mainCats.forEach(({ cat, amount }) => {
+      if (!amount || amount <= 0) return;
+      const inSheetForCat = inSheetByCat[cat] || 0;
+      const diff = amount - inSheetForCat;
+      // Tolerance: 1 cent
+      if (diff > 0.01) {
+        state.costLedger.push({
+          ORDER: o.order,
+          'DESCRIPCIÓN GASTO': cat,
+          AMOUNT: diff,
+          CURRENCY: 'EUR',
+          'AMOUNT EUR': diff,
+          INVOICE: '(tabla principal)',
+          NOTAS: 'Importe no detallado en hoja COSTOS',
+          _source: 'TABLA',
+          _cat: cat,
+          _converted: false,
+          _missingFx: false,
+          _origCcy: 'EUR'
+        });
+      }
+    });
+  });
+}
+
+function normalizeCategory(raw) {
+  if (!raw) return 'OTHER';
+  const s = String(raw).toUpperCase().trim();
+  if (COST_CATEGORIES[s]) return s;
+  // Fuzzy matches for common variants
+  if (s.includes('SHIP')) return 'SHIPPING';
+  if (s.includes('LATE')) return 'LATE FEE';
+  if (s.includes('BER')) return 'BER CORE';
+  if (s.includes('DAMAGE') || s.includes('DAÑO') || s.includes('DANO')) return 'IND. DAMAGE';
+  return 'OTHER';
+}
+
+function normalizeOrder(r) {
+  const orderDate = parseDate(r['ORDER DATE']);
+  const dispatchedDate = parseDate(r['DISPATCHED DTE']);
+  const returnDate = parseDate(r['RETURN DTE']);
+
+  // Dispatch TAT: días entre que se hizo la orden y se despachó
+  // Indicador clave de calidad operativa interna (antes de que el forwarder tome el envío)
+  let dispatchTat = null;
+  if (orderDate && dispatchedDate) {
+    dispatchTat = Math.floor((dispatchedDate - orderDate) / (1000*60*60*24));
+  }
+
+  // Derive month from dispatched date (more reliable than ƒ MONTH which is sometimes empty)
+  let month = r['ƒ MONTH'];
+  if (!month && dispatchedDate) {
+    month = dispatchedDate.toISOString().slice(0, 7);
+  }
+
+  // Days on loan: if RETURN DTE exists, use it; if open, use today
+  const today = new Date();
+  let daysOnLoan = null;
+  if (dispatchedDate) {
+    const end = returnDate || today;
+    daysOnLoan = Math.floor((end - dispatchedDate) / (1000*60*60*24));
+  }
+
+  // Remaining days (only meaningful for open orders): assume 21d contractual TAT
+  let remainingDays = null;
+  if (dispatchedDate && !returnDate) {
+    const dueDate = new Date(dispatchedDate.getTime() + 21*24*60*60*1000);
+    remainingDays = Math.floor((dueDate - today) / (1000*60*60*24));
+  } else if (r['ƒ REMAINING DAYS'] != null && r['ƒ REMAINING DAYS'] !== '') {
+    remainingDays = num(r['ƒ REMAINING DAYS']);
+  }
+
+  // TAT bucket from days on loan
+  let tatBucket = r['ƒ TAT BUCKET'];
+  if (!tatBucket && daysOnLoan != null) {
+    if (daysOnLoan <= 7) tatBucket = '0-7';
+    else if (daysOnLoan <= 14) tatBucket = '8-14';
+    else if (daysOnLoan <= 21) tatBucket = '15-21';
+    else tatBucket = '>21';
+  }
+
+  // Status: replicate exactly the Excel formula:
+  //   IF PRIORITY=CANCELED → CANCELED
+  //   ELSE IF RETURN DTE not empty → CLOSED
+  //   ELSE IF RETURNED AWB not empty → IN TRANSIT (returning, no arrival date yet)
+  //   ELSE IF DISPATCHED DTE not empty → OPEN
+  //   ELSE → PENDING (waiting for dispatch / pre-load planning)
+  let status = r.STATUS;
+  if (!status || String(status).trim() === '') {
+    if (r.PRIORITY === 'CANCELED' || r.PRIORITY === 'CANCELLED') status = 'CANCELED';
+    else if (returnDate) status = 'CLOSED';
+    else if (r['RETURNED AWB'] && String(r['RETURNED AWB']).trim() !== '') status = 'IN TRANSIT';
+    else if (dispatchedDate) status = 'OPEN';
+    else status = 'PENDING';
+  }
+
+  return {
+    order: String(r.ORDER).trim(),
+    status: status,
+    priority: r.PRIORITY || '—',
+    pn: r['P/N'] || '',
+    description: r.DESCRIPTION || '—',
+    aircraft: r.AIRCRAFT || '—',
+    acReg: r['A/C REG'] || '',
+    station: r.STATION || '—',
+    fwd: r.FWD || '—',
+    awb: r.AWB || '',
+    orderDate: orderDate,
+    dispatchedDate: dispatchedDate,
+    dispatchTat: dispatchTat,
+    inSn: r['IN S/N'] || '',
+    outSn: r['OUT S/N'] || '',
+    returnDate: returnDate,
+    fwd2: r.FWD2 || '',
+    returnedAwb: r['RETURNED AWB'] || '',
+    nff: r.NFF,
+    stockAvt: r['STOCK AVT'],
+    failOnFit: r['FAIL ON FIT'],
+    lateFee: num(r['LATE FEE']),
+    berCore: num(r['BER CORE']),
+    indDamage: num(r['IND. DAMAGE']),
+    shippingCost: num(r['SHIPPING COST']),
+    costTotal: num(r['ƒ COST TOTAL EUR']) || num(r['SHIPPING COST']),
+    month: month || null,
+    tatBucket: tatBucket,
+    lateReturn: r['ƒ LATE RETURN'],
+    remainingDays: remainingDays,
+    daysOnLoan: daysOnLoan,
+    earlyRemoval: r['ƒ EARLY REMOVAL'],
+    unused: r['ƒ UNUSED']
+  };
+}
+
+function parseDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  // Try YYYY-MM-DD or DD/MM/YYYY
+  const s = String(v);
+  let d = new Date(s);
+  if (!isNaN(d.getTime())) return d;
+  const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+  return null;
+}
+
+function num(v) {
+  if (v == null || v === '') return 0;
+  const n = Number(String(v).replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
+
+// ============================================================
+// FILTERS
+// ============================================================
+function initFilters() {
+  document.querySelectorAll('.filter select').forEach(sel => {
+    const field = sel.dataset.filter;
+    const values = uniqueValues(state.orders, field);
+    sel.innerHTML = '<option value="">— Todos —</option>';
+    values.sort().forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', () => {
+      state.filters[field] = sel.value;
+      render();
+    });
+  });
+
+  document.getElementById('clear-filters-btn').addEventListener('click', () => {
+    state.filters = {};
+    document.querySelectorAll('.filter select').forEach(s => s.value = '');
+    document.getElementById('raw-search').value = '';
+    state.rawSearch = '';
+    render();
+  });
+
+  document.getElementById('raw-search').addEventListener('input', (e) => {
+    state.rawSearch = e.target.value.toLowerCase();
+    renderRawTable();
+  });
+
+  const costSearchEl = document.getElementById('cost-search');
+  if (costSearchEl) {
+    costSearchEl.addEventListener('input', (e) => {
+      state.costSearch = e.target.value;
+      renderCostTable(applyFilters(state.orders));
+    });
+  }
+}
+
+function uniqueValues(arr, field) {
+  const set = new Set();
+  arr.forEach(o => {
+    let v = getFieldValue(o, field);
+    if (v && v !== '—') set.add(String(v));
+  });
+  return [...set];
+}
+
+function getFieldValue(o, field) {
+  switch (field) {
+    case 'MONTH': return o.month;
+    case 'STATUS': return o.status;
+    case 'PRIORITY': return o.priority;
+    case 'AIRCRAFT': return o.aircraft;
+    case 'ACREG': return o.acReg;
+    case 'STATION': return o.station;
+    case 'FWD': return o.fwd;
+    case 'DESCRIPTION': return o.description;
+    case 'TATBUCKET': return o.tatBucket;
+    case 'PN': return o.pn;
+    default: return null;
+  }
+}
+
+function applyFilters(orders) {
+  return orders.filter(o => {
+    for (const [field, val] of Object.entries(state.filters)) {
+      if (!val) continue;
+      const v = getFieldValue(o, field);
+      if (String(v) !== val) return false;
+    }
+    return true;
+  });
+}
+
+// Apply a filter programmatically (e.g. when user clicks a chart/KPI)
+// Toggle behavior: clicking the same filter clears it
+function setFilter(field, value) {
+  const current = state.filters[field];
+  if (current === String(value)) {
+    delete state.filters[field];
+    value = '';
+  } else {
+    state.filters[field] = String(value);
+  }
+  // Reflect in the dropdown UI
+  const sel = document.querySelector(`select[data-filter="${field}"]`);
+  if (sel) sel.value = value;
+  render();
+  // Scroll to top of dashboard so user sees the filter applied
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+// Expose for inline onclick handlers
+window.setFilter = setFilter;
+
+function applyFiltersToCosts(costs) {
+  // Only keep costs whose ORDER is in the filtered orders list
+  const filteredOrders = applyFilters(state.orders);
+  const validOrders = new Set(filteredOrders.map(o => o.order));
+  return costs.filter(c => validOrders.has(String(c.ORDER).trim()));
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  const filtered = applyFilters(state.orders);
+  renderActiveFilters();
+  renderKPIs(filtered);
+  renderWatchlist(filtered);
+  renderMonthlyChart(filtered);
+  renderTatChart(filtered);
+  renderHeatmap(filtered);
+  renderQualityFlags(filtered);
+  renderDispatchQuality(filtered);
+  renderCostKPIs(filtered);
+  renderCostChart(filtered);
+  renderCostCategoryChart(filtered);
+  renderCostTable(filtered);
+  renderTopPN(filtered);
+  renderRawTable();
+}
+
+// ---- KPIs ----
+function renderKPIs(orders) {
+  // Operational base: exclude PENDING (not dispatched yet) and CANCELED
+  const operational = orders.filter(o => o.status !== 'PENDING' && o.status !== 'CANCELED' && o.status !== 'CANCELLED');
+
+  const total = orders.length;
+  const open = orders.filter(o => o.status === 'OPEN').length;
+  const inTransit = orders.filter(o => o.status === 'IN TRANSIT').length;
+  const closed = orders.filter(o => o.status === 'CLOSED').length;
+  const pending = orders.filter(o => o.status === 'PENDING').length;
+  const canceled = orders.filter(o => o.status === 'CANCELED' || o.status === 'CANCELLED').length;
+
+  // Active = OPEN + IN TRANSIT (clock is running for both)
+  const active = orders.filter(o => o.status === 'OPEN' || o.status === 'IN TRANSIT');
+  const overdue = active.filter(o => o.daysOnLoan != null && o.daysOnLoan > 21).length;
+
+  // TAT average over closed orders only
+  const closedWithDays = orders.filter(o => o.status === 'CLOSED' && o.daysOnLoan != null);
+  const avgTat = closedWithDays.length ? closedWithDays.reduce((s,o) => s+o.daysOnLoan, 0) / closedWithDays.length : 0;
+
+  // On-time return: closed within 21 days
+  const onTime = closedWithDays.filter(o => o.daysOnLoan <= 21).length;
+  const onTimePct = closedWithDays.length ? (onTime / closedWithDays.length * 100) : 0;
+
+  // Total cost YTD (sum from unified cost ledger, filtered)
+  const filteredCosts = applyFiltersToCosts(state.costLedger);
+  const totalCost = filteredCosts.reduce((s,c) => s + num(c['AMOUNT EUR']), 0);
+  const invoiceCount = filteredCosts.filter(c => c._source === 'COSTOS').length;
+  const ordersWithCost = new Set(filteredCosts.map(c => c.ORDER)).size;
+
+  // Unused rate (over closed only)
+  const unusedEligible = orders.filter(o => o.status === 'CLOSED' && (o.unused === 'YES' || o.unused === 'NO'));
+  const unusedYes = unusedEligible.filter(o => o.unused === 'YES').length;
+  const unusedPct = unusedEligible.length ? (unusedYes / unusedEligible.length * 100) : 0;
+
+  // ---- DISPATCH TAT (Order Date → Dispatched Date) ----
+  // SLA por prioridad: AOG mismo día, IOR ≤2d, ROUTINE ≤5d, PRE LOAD ≤10d
+  const dispatchedOrders = orders.filter(o => o.dispatchTat != null && o.dispatchTat >= 0);
+  const onTimeDispatch = dispatchedOrders.filter(o => o.dispatchTat <= dispatchSlaFor(o.priority));
+  const onTimeDispatchPct = dispatchedOrders.length ? (onTimeDispatch.length / dispatchedOrders.length * 100) : 0;
+  // Detector de fechas inconsistentes (despacho antes de orden)
+  const badDates = orders.filter(o => o.dispatchTat != null && o.dispatchTat < 0).length;
+
+  // Pipeline breakdown by priority (top 2)
+  const pendingByPriority = {};
+  orders.filter(o => o.status === 'PENDING').forEach(o => {
+    pendingByPriority[o.priority] = (pendingByPriority[o.priority] || 0) + 1;
+  });
+  const pipelineTop = Object.entries(pendingByPriority).sort((a,b) => b[1]-a[1]).slice(0, 2);
+  const pipelineSub = pipelineTop.length > 0
+    ? pipelineTop.map(([p,n]) => `${n} ${p}`).join(' · ')
+    : 'sin pipeline';
+
+  // Active KPI sub-text: OPEN + IN TRANSIT split
+  let activeSub;
+  if (active.length === 0) {
+    activeSub = 'sin activas';
+  } else if (overdue > 0) {
+    activeSub = `${overdue} vencidas (>21d)`;
+  } else {
+    activeSub = inTransit > 0 ? `${open} loan · ${inTransit} return` : 'sin vencidos';
+  }
+
+  const kpis = [
+    {
+      label: 'Total órdenes',
+      value: total,
+      sub: `${operational.length} operativas · ${pending} pipeline${canceled > 0 ? ' · ' + canceled + ' canc.' : ''}`,
+      subClass: ''
+      // No filter — total is the unfiltered baseline
+    },
+    {
+      label: 'Activas (loan + return)',
+      value: active.length,
+      sub: activeSub,
+      subClass: overdue > 0 ? 'danger' : (active.length > 0 ? 'success' : ''),
+      filter: { field: 'STATUS', value: 'OPEN' },  // Closest single filter
+      filterLabel: 'Status: OPEN'
+    },
+    {
+      label: 'Pipeline (PENDING)',
+      value: pending,
+      sub: pipelineSub,
+      subClass: '',
+      filter: { field: 'STATUS', value: 'PENDING' },
+      filterLabel: 'Status: PENDING'
+    },
+    {
+      label: 'TAT promedio',
+      value: avgTat.toFixed(1),
+      unit: ' d',
+      sub: closedWithDays.length > 0 ? 'objetivo ≤14d' : 'sin cerradas',
+      subClass: closedWithDays.length === 0 ? '' : (avgTat <= 14 ? 'success' : 'warning'),
+      filter: { field: 'STATUS', value: 'CLOSED' },
+      filterLabel: 'Status: CLOSED'
+    },
+    {
+      label: 'On-time dispatch',
+      value: dispatchedOrders.length > 0 ? onTimeDispatchPct.toFixed(0) + '%' : '—',
+      sub: dispatchedOrders.length > 0
+        ? `${onTimeDispatch.length} / ${dispatchedOrders.length} en plazo${badDates > 0 ? ` · ⚠ ${badDates} fechas inconsist.` : ''}`
+        : 'sin despachadas',
+      subClass: dispatchedOrders.length === 0 ? '' : (onTimeDispatchPct >= 95 ? 'success' : (onTimeDispatchPct >= 85 ? 'warning' : 'danger')),
+    },
+    {
+      label: 'On-time return',
+      value: closedWithDays.length > 0 ? onTimePct.toFixed(0) + '%' : '—',
+      sub: `${onTime} / ${closedWithDays.length} cerradas`,
+      subClass: closedWithDays.length === 0 ? '' : (onTimePct >= 90 ? 'success' : (onTimePct >= 75 ? 'warning' : 'danger')),
+      filter: { field: 'STATUS', value: 'CLOSED' },
+      filterLabel: 'Status: CLOSED'
+    },
+    {
+      label: 'Coste total',
+      value: '€' + totalCost.toLocaleString('es-ES', { maximumFractionDigits: 0 }),
+      sub: `${invoiceCount} factura${invoiceCount===1?'':'s'} · ${ordersWithCost} órden${ordersWithCost===1?'':'es'}`,
+      subClass: ''
+      // No specific filter
+    },
+    {
+      label: 'Unused rate',
+      value: unusedEligible.length > 0 ? unusedPct.toFixed(1) + '%' : '—',
+      sub: `${unusedYes} de ${unusedEligible.length} cerradas`,
+      subClass: unusedPct > 15 ? 'warning' : '',
+      // Could filter by unused=YES — but that's a flag, not a dropdown filter. Skip.
+    }
+  ];
+
+  const html = kpis.map((k, i) => {
+    const clickable = k.filter ? 'clickable' : '';
+    const active = k.filter && state.filters[k.filter.field] === k.filter.value ? 'active' : '';
+    const onclickAttr = k.filter ? `onclick="setFilter('${k.filter.field}', '${k.filter.value}')"` : '';
+    return `
+    <div class="kpi ${clickable} ${active}" ${onclickAttr}>
+      <p class="kpi-label">${k.label}</p>
+      <p class="kpi-value">${k.value}${k.unit ? `<span class="unit">${k.unit}</span>` : ''}</p>
+      <p class="kpi-sub ${k.subClass}">${k.sub}</p>
+    </div>`;
+  }).join('');
+  document.getElementById('kpi-grid').innerHTML = html;
+}
+
+// ---- Active filter chips ----
+function renderActiveFilters() {
+  const container = document.getElementById('active-filters');
+  const entries = Object.entries(state.filters).filter(([,v]) => v);
+  if (entries.length === 0) { container.innerHTML = ''; return; }
+
+  const fieldLabels = {
+    STATUS: 'Status', PRIORITY: 'Priority', AIRCRAFT: 'Aircraft', ACREG: 'A/C Reg',
+    STATION: 'Station', FWD: 'Forwarder', MONTH: 'Mes', DESCRIPTION: 'Componente',
+    TATBUCKET: 'TAT', PN: 'P/N'
+  };
+
+  let html = '<span class="active-filters-label">Filtros activos:</span>';
+  entries.forEach(([field, val]) => {
+    html += `<span class="filter-chip" onclick="setFilter('${field}', '${escAttr(val)}')">${fieldLabels[field] || field}: ${esc(val)} <span class="x">×</span></span>`;
+  });
+  container.innerHTML = html;
+}
+
+function escAttr(v) {
+  return String(v).replace(/'/g, "\\'");
+}
+
+// ---- Watchlist ----
+function renderWatchlist(orders) {
+  // Active orders = OPEN + IN TRANSIT (clock is running for both, both can be overdue)
+  const active = orders
+    .filter(o => o.status === 'OPEN' || o.status === 'IN TRANSIT')
+    .sort((a,b) => {
+      // Most urgent first: lowest remaining days, nulls last
+      if (a.remainingDays == null) return 1;
+      if (b.remainingDays == null) return -1;
+      return a.remainingDays - b.remainingDays;
+    });
+
+  const pending = orders
+    .filter(o => o.status === 'PENDING')
+    .sort((a,b) => {
+      // Order by priority severity
+      const order = { 'AOG': 0, 'CRITICAL': 1, 'IOR': 2, 'PRE LOAD': 3, 'ROUTINE': 4 };
+      return (order[a.priority] ?? 99) - (order[b.priority] ?? 99);
+    });
+
+  let html = '';
+
+  // ACTIVE section (OPEN + IN TRANSIT)
+  if (active.length === 0) {
+    html += '<div class="empty-state">No hay órdenes activas en este filtro</div>';
+  } else {
+    html += '<table><thead><tr>' +
+      '<th>Order</th><th>Status</th><th>Priority</th><th>Description</th><th>P/N</th>' +
+      '<th>A/C</th><th>Station</th><th>FWD</th>' +
+      '<th class="num">Days on loan</th><th class="num">Remaining</th><th>Estado</th>' +
+      '</tr></thead><tbody>';
+    active.forEach(o => {
+      const statusBadge = getStatusBadge(o);
+      const stCls = o.status === 'IN TRANSIT' ? 'badge-transit' : 'badge-open';
+      const stLabel = o.status === 'IN TRANSIT' ? 'In transit' : 'Open';
+      // Semaphore color for days on loan: ≤14 ok, 15-21 warn, >21 bad
+      let dotCls = '';
+      if (o.daysOnLoan != null) {
+        if (o.daysOnLoan > 21) dotCls = 'dot-bad';
+        else if (o.daysOnLoan >= 15) dotCls = 'dot-warn';
+        else dotCls = 'dot-ok';
+      }
+      const daysCell = o.daysOnLoan != null
+        ? `<span class="dot ${dotCls}"></span>${o.daysOnLoan}`
+        : '—';
+      html += `<tr>
+        <td class="mono">${esc(o.order)}</td>
+        <td><span class="badge ${stCls}">${stLabel}</span></td>
+        <td>${priorityBadge(o.priority)}</td>
+        <td>${esc(o.description)}</td>
+        <td class="mono">${esc(o.pn)}</td>
+        <td>${esc(o.aircraft)}</td>
+        <td>${esc(o.station)}</td>
+        <td>${esc(o.fwd)}</td>
+        <td class="num">${daysCell}</td>
+        <td class="num">${o.remainingDays ?? '—'}</td>
+        <td>${statusBadge}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+  }
+
+  document.getElementById('watchlist').innerHTML = html;
+
+  // PENDING section (separate, after the watchlist)
+  let pendHtml = '';
+  if (pending.length > 0) {
+    pendHtml = '<table><thead><tr>' +
+      '<th>Order</th><th>Priority</th><th>Description</th><th>P/N</th>' +
+      '<th>A/C</th><th>Station</th><th>FWD</th><th>Estado</th>' +
+      '</tr></thead><tbody>';
+    pending.forEach(o => {
+      pendHtml += `<tr>
+        <td class="mono">${esc(o.order)}</td>
+        <td>${priorityBadge(o.priority)}</td>
+        <td>${esc(o.description)}</td>
+        <td class="mono">${esc(o.pn)}</td>
+        <td>${esc(o.aircraft)}</td>
+        <td>${esc(o.station)}</td>
+        <td>${esc(o.fwd)}</td>
+        <td><span class="badge badge-preload">Esperando dispatch</span></td>
+      </tr>`;
+    });
+    pendHtml += '</tbody></table>';
+  } else {
+    pendHtml = '<div class="empty-state">Sin órdenes en pipeline</div>';
+  }
+  document.getElementById('pipeline-list').innerHTML = pendHtml;
+}
+
+function getStatusBadge(o) {
+  if (o.remainingDays == null) return '<span class="badge badge-canceled">—</span>';
+  if (o.remainingDays < 0) return `<span class="badge badge-bad">Vencida ${Math.abs(o.remainingDays)}d</span>`;
+  if (o.remainingDays <= 3) return `<span class="badge badge-warn">Vence en ${o.remainingDays}d</span>`;
+  return '<span class="badge badge-ok">OK</span>';
+}
+
+function priorityBadge(p) {
+  const cls = {
+    'AOG': 'badge-aog', 'IOR': 'badge-ior', 'PRE LOAD': 'badge-preload',
+    'ROUTINE': 'badge-routine', 'CRITICAL': 'badge-aog',
+    'CANCELED': 'badge-canceled', 'CANCELLED': 'badge-canceled'
+  }[p] || 'badge-canceled';
+  return `<span class="badge ${cls}">${esc(p)}</span>`;
+}
+
+// ---- Charts ----
+function destroyChart(id) {
+  if (state.charts[id]) { state.charts[id].destroy(); state.charts[id] = null; }
+}
+
+function renderMonthlyChart(orders) {
+  destroyChart('monthly');
+  // Only orders with real dispatch (exclude PENDING and CANCELED)
+  const operational = orders.filter(o => o.status !== 'PENDING' && o.status !== 'CANCELED' && o.status !== 'CANCELLED' && o.month);
+  const months = [...new Set(operational.map(o => o.month))].sort();
+  const priorities = [...new Set(operational.map(o => o.priority).filter(p => p && p !== '—'))];
+
+  const datasets = priorities.map(p => ({
+    label: p,
+    data: months.map(m => operational.filter(o => o.month === m && o.priority === p).length),
+    backgroundColor: PRIORITY_COLORS[p] || COLORS.gray
+  }));
+
+  const ctx = document.getElementById('chart-monthly');
+  state.charts.monthly = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: months, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      onClick: (evt, els) => {
+        if (!els.length) return;
+        const el = els[0];
+        const month = months[el.index];
+        const priority = datasets[el.datasetIndex].label;
+        // Apply both filters at once
+        state.filters['MONTH'] = month;
+        state.filters['PRIORITY'] = priority;
+        document.querySelector('select[data-filter="MONTH"]').value = month;
+        document.querySelector('select[data-filter="PRIORITY"]').value = priority;
+        render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      },
+      scales: {
+        x: { stacked: true, ticks: { autoSkip: false, maxRotation: 45 } },
+        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderTatChart(orders) {
+  destroyChart('tat');
+  // Only orders with real dispatch (exclude PENDING and CANCELED)
+  const operational = orders.filter(o => o.status !== 'PENDING' && o.status !== 'CANCELED' && o.status !== 'CANCELLED' && o.tatBucket);
+  const buckets = ['0-7', '8-14', '15-21', '>21'];
+  const counts = buckets.map(b => operational.filter(o => o.tatBucket === b).length);
+  const colors = [COLORS.teal, COLORS.primary, COLORS.amber, COLORS.danger];
+
+  const ctx = document.getElementById('chart-tat');
+  state.charts.tat = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: buckets,
+      datasets: [{ label: 'Órdenes', data: counts, backgroundColor: colors }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      onClick: (evt, els) => {
+        if (!els.length) return;
+        setFilter('TATBUCKET', buckets[els[0].index]);
+      },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+function renderHeatmap(orders) {
+  // Rows = unique P/N (with description for context), Cols = A/C REG
+  const acRegs = [...new Set(orders.map(o => o.acReg).filter(a => a && a !== ''))].sort();
+
+  // Build PN-level aggregates
+  const pnMap = {};
+  orders.forEach(o => {
+    if (!o.pn) return;
+    if (!pnMap[o.pn]) pnMap[o.pn] = { pn: o.pn, desc: o.description, total: 0, byReg: {} };
+    pnMap[o.pn].total++;
+    if (o.acReg) pnMap[o.pn].byReg[o.acReg] = (pnMap[o.pn].byReg[o.acReg] || 0) + 1;
+  });
+
+  // Sort by total volume, take top 12
+  const allPNs = Object.values(pnMap).sort((a,b) => b.total - a.total);
+  const topPNs = allPNs.slice(0, 12);
+  const otherPNs = allPNs.slice(12);
+
+  const matrix = topPNs.map(p => ({
+    pn: p.pn,
+    desc: p.desc,
+    cells: acRegs.map(reg => p.byReg[reg] || 0)
+  }));
+  if (otherPNs.length > 0) {
+    matrix.push({
+      pn: `+ otros`,
+      desc: `${otherPNs.length} P/N adicionales`,
+      cells: acRegs.map(reg => otherPNs.reduce((s,p) => s + (p.byReg[reg] || 0), 0)),
+      isOthers: true
+    });
+  }
+
+  const maxVal = Math.max(...matrix.flatMap(r => r.cells), 1);
+
+  if (acRegs.length === 0 || matrix.length === 0) {
+    document.getElementById('heatmap').innerHTML =
+      '<tbody><tr><td colspan="2" class="empty-state">Sin datos para mostrar</td></tr></tbody>';
+    return;
+  }
+
+  let html = '<thead><tr><th style="min-width: 180px;">P/N · Descripción</th>'
+    + acRegs.map(a => `<th>${esc(a)}</th>`).join('')
+    + '</tr></thead><tbody>';
+
+  matrix.forEach(row => {
+    if (row.isOthers) {
+      html += `<tr><td style="color: var(--text-3); font-style: italic;">${esc(row.pn)} <span class="pn-desc">(${esc(row.desc)})</span></td>`;
+    } else {
+      html += `<tr><td><span class="pn-cell">${esc(row.pn)}</span><span class="pn-desc">${esc(row.desc)}</span></td>`;
+    }
+    html += row.cells.map((v, i) => {
+      if (v === 0) return '<td><div class="hm-cell" style="color: var(--text-3);">—</div></td>';
+      const intensity = v / maxVal;
+      const bg = intensity > 0.6 ? '#185fa5' : (intensity > 0.3 ? '#85b7eb' : '#e6f1fb');
+      const color = intensity > 0.5 ? '#fff' : '#0c447c';
+      const reg = acRegs[i];
+      const clickable = row.isOthers ? '' : 'clickable';
+      const onclick = row.isOthers ? '' : `onclick="setFilter('ACREG', '${escAttr(reg)}'); setFilter('PN', '${escAttr(row.pn)}');"`;
+      return `<td><div class="hm-cell ${clickable}" style="background:${bg}; color:${color};" ${onclick} title="${esc(row.pn)} en ${esc(reg)}: ${v} órdenes">${v}</div></td>`;
+    }).join('') + '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('heatmap').innerHTML = html;
+}
+
+// ---- Quality flags (% over returned) ----
+function renderQualityFlags(orders) {
+  const returned = orders.filter(o => o.status === 'CLOSED');
+  const N = returned.length;
+
+  // Exception rates — how often something deviated from the desired outcome.
+  // STOCK AVT = "YES" means the part was available in stock (the desirable case),
+  // so the exception is when it was NOT available.
+  const flags = [
+    { name: 'NFF',           count: returned.filter(o => o.nff === 'YES').length,
+      tip: 'No Fault Found — la pieza volvió sin defecto detectado' },
+    { name: 'Fail on fit',   count: returned.filter(o => o.failOnFit === 'YES').length,
+      tip: 'La pieza falló al instalarse en la aeronave' },
+    { name: 'Sin stock AVT', count: returned.filter(o => o.stockAvt === 'NO').length,
+      tip: 'STOCK AVT = NO — la pieza no estaba disponible en stock al solicitarse' },
+    { name: 'Early removal', count: returned.filter(o => o.earlyRemoval === 'YES').length,
+      tip: 'Pieza retirada antes de su vida útil esperada' },
+    { name: 'Unused',        count: returned.filter(o => o.unused === 'YES').length,
+      tip: 'Pieza devuelta sin haber sido usada' }
+  ];
+
+  const html = flags.map(f => {
+    const pct = N > 0 ? (f.count / N * 100) : 0;
+    const cls = pct === 0 ? '' : (pct > 10 ? 'bad' : 'warn');
+    return `<div class="flag" title="${esc(f.tip)}">
+      <p class="flag-name">${esc(f.name)}</p>
+      <p class="flag-pct ${cls}">${pct.toFixed(1)}%</p>
+      <p class="flag-abs">${f.count} de ${N}</p>
+    </div>`;
+  }).join('');
+  document.getElementById('flags').innerHTML = html;
+  document.getElementById('flags-note').textContent =
+    N > 0 ? `Base: ${N} órdenes cerradas en el filtro actual · pasa el cursor sobre cada indicador para ver la definición` : 'No hay órdenes cerradas en el filtro actual';
+}
+
+// ---- Dispatch quality: SLA compliance + outliers ----
+function renderDispatchQuality(orders) {
+  const dispatched = orders.filter(o => o.dispatchTat != null && o.dispatchTat >= 0);
+
+  // ----- (1) SLA compliance breakdown by priority -----
+  const slaContainer = document.getElementById('dispatch-sla-breakdown');
+  if (dispatched.length === 0) {
+    slaContainer.innerHTML = '<p class="empty-state" style="padding: 20px;">No hay órdenes con order date + dispatched date en el filtro actual</p>';
+  } else {
+    // Group by priority
+    const byPrio = {};
+    dispatched.forEach(o => {
+      const p = o.priority || '—';
+      if (!byPrio[p]) byPrio[p] = { total: 0, onTime: 0, sla: dispatchSlaFor(p) };
+      byPrio[p].total++;
+      if (o.dispatchTat <= byPrio[p].sla) byPrio[p].onTime++;
+    });
+    // Order priorities by SLA strictness
+    const prioOrder = ['AOG', 'CRITICAL', 'IOR', 'ROUTINE', 'PRE LOAD'];
+    const sorted = Object.keys(byPrio).sort((a, b) => {
+      const ai = prioOrder.indexOf(a); const bi = prioOrder.indexOf(b);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+    let rows = '<table style="width: 100%; font-size: 12px;">';
+    rows += `<thead><tr>
+      <th style="cursor: default;">Prioridad</th>
+      <th class="num" style="cursor: default;">SLA</th>
+      <th style="cursor: default; width: 45%;">Cumplimiento</th>
+      <th class="num" style="cursor: default;">%</th>
+      <th class="num" style="cursor: default;">N</th>
+    </tr></thead><tbody>`;
+
+    sorted.forEach(p => {
+      const { total, onTime, sla } = byPrio[p];
+      const pct = total > 0 ? (onTime / total * 100) : 0;
+      const cls = pct >= 95 ? 'success' : (pct >= 85 ? 'warning' : 'danger');
+      const barColor = pct >= 95 ? COLORS.success : (pct >= 85 ? COLORS.warning : COLORS.danger);
+      const badgeClass = priorityBadgeClass(p);
+      const isActive = state.filters['PRIORITY'] === p;
+      const rowStyle = isActive
+        ? 'cursor: pointer; background: var(--info-bg);'
+        : 'cursor: pointer;';
+      rows += `<tr onclick="filterPriorityAndShowRaw('${escAttr(p)}')" title="Click para filtrar todo por prioridad ${esc(p)} y ver el detalle abajo" style="${rowStyle}" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='${isActive ? 'var(--info-bg)' : ''}'">
+        <td><span class="badge ${badgeClass}">${esc(p)}</span></td>
+        <td class="num" style="color: var(--text-2);">${sla === 0 ? 'mismo día' : '≤' + sla + 'd'}</td>
+        <td>
+          <div style="background: var(--surface-2); border-radius: 4px; height: 8px; overflow: hidden; position: relative;">
+            <div style="background: ${barColor}; height: 100%; width: ${pct.toFixed(0)}%; transition: width 0.3s;"></div>
+          </div>
+        </td>
+        <td class="num" style="font-weight: 500; color: var(--${cls === 'success' ? 'success' : cls === 'warning' ? 'warning' : 'danger'});">${pct.toFixed(0)}%</td>
+        <td class="num" style="color: var(--text-2);">${onTime}/${total}</td>
+      </tr>`;
+    });
+    rows += '</tbody></table>';
+    slaContainer.innerHTML = rows;
+  }
+
+  // ----- (2) Top 5 slowest dispatches -----
+  const outliersContainer = document.getElementById('dispatch-outliers');
+  const outliers = [...dispatched].sort((a, b) => b.dispatchTat - a.dispatchTat).slice(0, 5);
+  if (outliers.length === 0) {
+    outliersContainer.innerHTML = '<p class="empty-state" style="padding: 20px;">Sin órdenes para analizar</p>';
+  } else {
+    let html = '<table style="width: 100%; font-size: 12px;">';
+    html += `<thead><tr>
+      <th style="cursor: default;">Orden</th>
+      <th style="cursor: default;">P/N</th>
+      <th style="cursor: default;">Prio</th>
+      <th style="cursor: default;">FWD</th>
+      <th class="num" style="cursor: default;">TAT</th>
+    </tr></thead><tbody>`;
+    outliers.forEach(o => {
+      const sla = dispatchSlaFor(o.priority);
+      const dotClass = o.dispatchTat <= sla ? 'dot-ok' : (o.dispatchTat <= sla + 2 ? 'dot-warn' : 'dot-bad');
+      const badgeClass = priorityBadgeClass(o.priority);
+      html += `<tr onclick="filterRawByOrder('${escAttr(o.order)}')" title="Click para ver el detalle completo de ${esc(o.order)} en la tabla de abajo" style="cursor: pointer;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+        <td class="mono">${esc(o.order)}</td>
+        <td class="mono">${esc(o.pn)}</td>
+        <td><span class="badge ${badgeClass}">${esc(o.priority)}</span></td>
+        <td>${esc(o.fwd)}</td>
+        <td class="num" style="font-weight: 500;"><span class="dot ${dotClass}"></span>${o.dispatchTat}d</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    outliersContainer.innerHTML = html;
+  }
+}
+
+function priorityBadgeClass(p) {
+  if (p === 'AOG') return 'badge-aog';
+  if (p === 'IOR') return 'badge-ior';
+  if (p === 'PRE LOAD') return 'badge-preload';
+  if (p === 'ROUTINE') return 'badge-routine';
+  if (p === 'CANCELED' || p === 'CANCELLED') return 'badge-canceled';
+  return 'badge-ior';
+}
+
+// ---- Cost chart with breakdown ----
+function renderCostChart(orders) {
+  destroyChart('cost');
+  const validOrderSet = new Set(orders.map(o => o.order));
+  const filteredCosts = state.costLedger.filter(c => validOrderSet.has(String(c.ORDER).trim()));
+
+  // Group by month + category. Resolve month from the linked order's dispatched date / ƒ MONTH.
+  const monthsSet = new Set();
+  const data = {}; // {month: {category: total}}
+  let unmappedTotal = 0;
+
+  filteredCosts.forEach(c => {
+    const order = state.orders.find(o => o.order === String(c.ORDER).trim());
+    const month = order && order.month ? order.month : null;
+    if (!month) {
+      // Cost belongs to an order without a dispatch month yet — bucket as "Sin mes"
+      unmappedTotal += num(c['AMOUNT EUR']);
+      return;
+    }
+    monthsSet.add(month);
+    const catKey = c._cat || normalizeCategory(c['DESCRIPCIÓN GASTO']);
+    if (!data[month]) data[month] = {};
+    data[month][catKey] = (data[month][catKey] || 0) + num(c['AMOUNT EUR']);
+  });
+
+  if (unmappedTotal > 0) {
+    monthsSet.add('Sin mes');
+    data['Sin mes'] = data['Sin mes'] || {};
+    data['Sin mes']['OTHER'] = (data['Sin mes']['OTHER'] || 0) + unmappedTotal;
+  }
+
+  const months = [...monthsSet].sort((a,b) => a === 'Sin mes' ? 1 : b === 'Sin mes' ? -1 : a.localeCompare(b));
+  const allCategories = ['SHIPPING', 'LATE FEE', 'BER CORE', 'IND. DAMAGE', 'OTHER'];
+  const datasets = allCategories.map(cat => ({
+    type: 'bar',
+    label: cat,
+    data: months.map(m => data[m] && data[m][cat] ? data[m][cat] : 0),
+    backgroundColor: COST_CATEGORIES[cat],
+    maxBarThickness: 80,
+    stack: 'cost',
+    order: 2
+  })).filter(ds => ds.data.some(v => v > 0));
+
+  // Trend line: total cost per month, overlaid as a line dataset.
+  // Skip "Sin mes" from the line because it's not part of the time series.
+  const totals = months.map(m => {
+    if (m === 'Sin mes') return null;
+    return allCategories.reduce((s, cat) => s + (data[m] && data[m][cat] ? data[m][cat] : 0), 0);
+  });
+
+  if (datasets.length > 0) {
+    datasets.push({
+      type: 'line',
+      label: 'Total mensual',
+      data: totals,
+      borderColor: COLORS.primary,
+      backgroundColor: COLORS.primary,
+      borderWidth: 2,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      pointBackgroundColor: '#fff',
+      pointBorderColor: COLORS.primary,
+      pointBorderWidth: 2,
+      tension: 0.25,
+      fill: false,
+      spanGaps: true,    // connect across "Sin mes" gap if present
+      order: 1           // draw the line on top of the bars
+    });
+  }
+
+  // Get the canvas — we never destroy it, only clear/replace the chart
+  const ctx = document.getElementById('chart-cost');
+  if (!ctx) return; // safety guard
+
+  // Hide overlay if any
+  const overlayId = 'cost-empty-overlay';
+  const existingOverlay = document.getElementById(overlayId);
+  if (existingOverlay) existingOverlay.remove();
+
+  if (months.length === 0 || datasets.length === 0) {
+    // Show overlay over canvas without destroying it
+    const overlay = document.createElement('div');
+    overlay.id = overlayId;
+    overlay.className = 'empty-state';
+    overlay.style.cssText = 'position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;';
+    overlay.textContent = 'Sin costos cargados en este filtro';
+    ctx.parentElement.appendChild(overlay);
+    return;
+  }
+
+  state.charts.cost = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: months, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      onClick: (evt, els) => {
+        if (!els.length) return;
+        const m = months[els[0].index];
+        if (m && m !== 'Sin mes') setFilter('MONTH', m);
+      },
+      scales: {
+        x: {
+          stacked: true,
+          ticks: { autoSkip: false, maxRotation: 45 }
+        },
+        y: {
+          stacked: true, beginAtZero: true,
+          ticks: { callback: (v) => '€' + v.toLocaleString('es-ES') }
+        }
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = ctx.raw == null ? 0 : ctx.raw;
+              return `${ctx.dataset.label}: €${v.toLocaleString('es-ES', { maximumFractionDigits: 2 })}`;
+            },
+            footer: (items) => {
+              // Sum only the bar (category) datasets, not the trend line — otherwise
+              // the line value gets added twice.
+              const total = items
+                .filter(i => i.dataset.type !== 'line')
+                .reduce((s,i) => s + (i.raw || 0), 0);
+              return 'Total mes: €' + total.toLocaleString('es-ES', { maximumFractionDigits: 2 });
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ---- Cost KPIs (mini-cards specific to cost section) ----
+function renderCostKPIs(orders) {
+  const validOrderSet = new Set(orders.map(o => o.order));
+  const filtered = state.costLedger.filter(c => validOrderSet.has(String(c.ORDER).trim()));
+
+  const total = filtered.reduce((s,c) => s + num(c['AMOUNT EUR']), 0);
+  const ordersWithCost = new Set(filtered.map(c => c.ORDER)).size;
+  const avgPerOrder = ordersWithCost > 0 ? total / ordersWithCost : 0;
+
+  // Breakdown by category
+  const byCat = {};
+  filtered.forEach(c => {
+    const cat = c._cat || normalizeCategory(c['DESCRIPCIÓN GASTO']);
+    byCat[cat] = (byCat[cat] || 0) + num(c['AMOUNT EUR']);
+  });
+
+  const fmt = (v) => '€' + Math.round(v).toLocaleString('es-ES');
+  const pct = (v) => total > 0 ? `${((v/total)*100).toFixed(0)}%` : '0%';
+
+  // For category KPIs: percentage of total spend goes big, EUR amount goes in the sub-line
+  const catKpi = (label, amount, descr) => ({
+    label,
+    value: total > 0 ? pct(amount) : '—',
+    sub: total > 0 ? `${fmt(amount)} · ${descr}` : 'sin gastos'
+  });
+
+  const kpis = [
+    { label: 'Total gasto', value: fmt(total), sub: `${filtered.length} línea${filtered.length===1?'':'s'} · ${ordersWithCost} órden${ordersWithCost===1?'':'es'}` },
+    { label: 'Coste medio / orden', value: ordersWithCost > 0 ? fmt(avgPerOrder) : '—', sub: ordersWithCost > 0 ? `${ordersWithCost} órdenes con coste` : 'sin gastos' },
+    catKpi('Shipping',    byCat['SHIPPING'] || 0,    'envíos'),
+    catKpi('Late fees',   byCat['LATE FEE'] || 0,    'recargos por retraso'),
+    catKpi('BER core',    byCat['BER CORE'] || 0,    'cores irreparables'),
+    catKpi('Ind. damage', byCat['IND. DAMAGE'] || 0, 'damages industriales'),
+    catKpi('Other',       byCat['OTHER'] || 0,       'otros gastos')
+  ];
+
+  const html = kpis.map(k => `
+    <div class="cost-kpi">
+      <p class="cost-kpi-label">${esc(k.label)}</p>
+      <p class="cost-kpi-value">${esc(k.value)}</p>
+      <p class="cost-kpi-sub">${esc(k.sub)}</p>
+    </div>
+  `).join('');
+  document.getElementById('cost-kpi-grid').innerHTML = html;
+}
+
+// ---- Cost by category (donut) ----
+function renderCostCategoryChart(orders) {
+  destroyChart('costCat');
+  const validOrderSet = new Set(orders.map(o => o.order));
+  const filtered = state.costLedger.filter(c => validOrderSet.has(String(c.ORDER).trim()));
+
+  const byCat = {};
+  filtered.forEach(c => {
+    const cat = c._cat || normalizeCategory(c['DESCRIPCIÓN GASTO']);
+    byCat[cat] = (byCat[cat] || 0) + num(c['AMOUNT EUR']);
+  });
+
+  const order = ['SHIPPING', 'LATE FEE', 'BER CORE', 'IND. DAMAGE', 'OTHER'];
+  const labels = order.filter(c => byCat[c] > 0);
+  const values = labels.map(c => byCat[c]);
+  const colors = labels.map(c => COST_CATEGORIES[c]);
+
+  const ctx = document.getElementById('chart-cost-cat');
+  if (!ctx) return;
+
+  const overlayId = 'cost-cat-empty-overlay';
+  const existing = document.getElementById(overlayId);
+  if (existing) existing.remove();
+
+  if (values.length === 0) {
+    const overlay = document.createElement('div');
+    overlay.id = overlayId;
+    overlay.className = 'empty-state';
+    overlay.style.cssText = 'position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;';
+    overlay.textContent = 'Sin costos registrados';
+    ctx.parentElement.appendChild(overlay);
+    return;
+  }
+
+  const total = values.reduce((s,v) => s+v, 0);
+
+  state.charts.costCat = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '55%',
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const pctVal = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : '0.0';
+              return `${ctx.label}: €${ctx.raw.toLocaleString('es-ES', { maximumFractionDigits: 2 })} (${pctVal}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ---- Cost detail table ----
+function filterRawByOrder(orderId) {
+  const input = document.getElementById('raw-search');
+  if (input) {
+    input.value = orderId;
+    state.rawSearch = orderId.toLowerCase();
+    renderRawTable();
+    // Scroll to the raw table so user sees the filtered result
+    document.querySelector('.raw-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+window.filterRawByOrder = filterRawByOrder;
+
+// Filter by priority AND scroll to raw table (used by dispatch SLA breakdown rows)
+function filterPriorityAndShowRaw(priority) {
+  const current = state.filters['PRIORITY'];
+  if (current === String(priority)) {
+    delete state.filters['PRIORITY'];
+  } else {
+    state.filters['PRIORITY'] = String(priority);
+  }
+  // Reflect in the dropdown UI
+  const sel = document.querySelector(`select[data-filter="PRIORITY"]`);
+  if (sel) sel.value = state.filters['PRIORITY'] || '';
+  render();
+  // Scroll to raw table so user sees individual rows
+  setTimeout(() => {
+    document.querySelector('.raw-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+window.filterPriorityAndShowRaw = filterPriorityAndShowRaw;
+
+function renderCostTable(orders) {
+  const validOrderSet = new Set(orders.map(o => o.order));
+  const filtered = state.costLedger.filter(c => validOrderSet.has(String(c.ORDER).trim()));
+
+  // Apply text search
+  const q = (state.costSearch || '').toLowerCase().trim();
+  const searched = q
+    ? filtered.filter(c => {
+        const fields = [c.ORDER, c['DESCRIPCIÓN GASTO'], c.INVOICE, c.NOTAS, c.CURRENCY, c._source];
+        return fields.some(f => f && String(f).toLowerCase().includes(q));
+      })
+    : filtered;
+
+  // Sort: COSTOS sheet entries first, then by order
+  const sorted = [...searched].sort((a,b) => {
+    if (a._source !== b._source) return a._source === 'COSTOS' ? -1 : 1;
+    return String(a.ORDER).localeCompare(String(b.ORDER));
+  });
+
+  const tbody = document.getElementById('cost-tbody');
+  if (sorted.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Sin gastos registrados para los filtros actuales</td></tr>';
+  } else {
+    tbody.innerHTML = sorted.map(c => {
+      const amount = num(c.AMOUNT) || num(c['AMOUNT EUR']);
+      const amountEur = num(c['AMOUNT EUR']);
+      const sourceTag = c._source === 'COSTOS'
+        ? '<span class="badge badge-closed" style="font-size: 10px;">COSTOS</span>'
+        : '<span class="badge badge-preload" style="font-size: 10px;">tabla</span>';
+      const cat = c._cat || normalizeCategory(c['DESCRIPCIÓN GASTO']);
+      const catColor = COST_CATEGORIES[cat] || COLORS.gray;
+
+      // Build the EUR cell — show a small "convertido" hint or a warning if FX is missing
+      let eurCell;
+      if (c._missingFx) {
+        eurCell = `<strong style="color: var(--danger);">€${amountEur.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+          <div style="font-size: 10px; color: var(--danger); margin-top: 1px;" title="Moneda ${esc(c._origCcy || '?')} no encontrada en _LISTAS · valor sin convertir">⚠ FX faltante (${esc(c._origCcy || '?')})</div>`;
+      } else if (c._converted) {
+        eurCell = `<strong>€${amountEur.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+          <div style="font-size: 10px; color: var(--text-3); margin-top: 1px;" title="Convertido automáticamente con FX de _LISTAS">≈ convertido (×${(c._fxRate || 1).toFixed(2)})</div>`;
+      } else {
+        eurCell = `<strong>€${amountEur.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
+      }
+
+      return `<tr style="cursor: pointer;" onclick="filterRawByOrder('${escAttr(c.ORDER)}')">
+        <td class="mono">${esc(c.ORDER)}</td>
+        <td><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${catColor}; margin-right:6px; vertical-align:middle;"></span>${esc(c['DESCRIPCIÓN GASTO'] || cat)}</td>
+        <td class="num">${amount ? amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</td>
+        <td>${esc(c.CURRENCY || '—')}</td>
+        <td class="num">${eurCell}</td>
+        <td class="mono" style="font-size: 11px;">${esc(c.INVOICE || '—')}</td>
+        <td style="font-size: 11px; color: var(--text-2);">${esc(c.NOTAS || '')}</td>
+        <td>${sourceTag}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Total in the count badge — and warn if any rows are missing FX
+  const totalEur = searched.reduce((s,c)=>s+num(c['AMOUNT EUR']),0);
+  const missingFxCount = searched.filter(c => c._missingFx).length;
+  let countText = `${sorted.length} gasto${sorted.length===1?'':'s'} · €${totalEur.toLocaleString('es-ES', { maximumFractionDigits: 0 })}`;
+  if (missingFxCount > 0) countText += ` · ⚠ ${missingFxCount} sin FX`;
+  document.getElementById('cost-count').textContent = countText;
+}
+
+// ---- Top P/N ----
+function renderTopPN(orders) {
+  destroyChart('pn');
+  const counts = {};
+  orders.forEach(o => {
+    if (!o.pn) return;
+    const key = `${o.pn}`;
+    if (!counts[key]) counts[key] = { count: 0, desc: o.description };
+    counts[key].count++;
+  });
+  const top = Object.entries(counts).sort((a,b) => b[1].count - a[1].count).slice(0, 10);
+  const pnKeys = top.map(([pn]) => pn);
+
+  const ctx = document.getElementById('chart-pn');
+  state.charts.pn = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: top.map(([pn, d]) => `${pn} (${d.desc})`.slice(0, 35)),
+      datasets: [{
+        label: 'Solicitudes',
+        data: top.map(([,d]) => d.count),
+        backgroundColor: COLORS.purple
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      onClick: (evt, els) => {
+        if (!els.length) return;
+        setFilter('PN', pnKeys[els[0].index]);
+      },
+      scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+// ---- Raw table ----
+const RAW_COLS = [
+  { key: 'order', label: 'Order', type: 'mono' },
+  { key: 'status', label: 'Status', type: 'badge-status' },
+  { key: 'priority', label: 'Priority', type: 'badge-priority' },
+  { key: 'pn', label: 'P/N', type: 'mono' },
+  { key: 'description', label: 'Description', type: 'text' },
+  { key: 'aircraft', label: 'A/C', type: 'text' },
+  { key: 'acReg', label: 'A/C Reg', type: 'text' },
+  { key: 'station', label: 'Station', type: 'text' },
+  { key: 'fwd', label: 'FWD', type: 'text' },
+  { key: 'awb', label: 'AWB', type: 'mono' },
+  { key: 'orderDate', label: 'Ordered', type: 'date' },
+  { key: 'dispatchedDate', label: 'Dispatched', type: 'date' },
+  { key: 'dispatchTat', label: 'Disp TAT', type: 'num' },
+  { key: 'inSn', label: 'IN S/N', type: 'mono' },
+  { key: 'outSn', label: 'OUT S/N', type: 'mono' },
+  { key: 'returnDate', label: 'Return', type: 'date' },
+  { key: 'daysOnLoan', label: 'Days', type: 'num' },
+  { key: 'tatBucket', label: 'TAT', type: 'text' },
+  { key: 'nff', label: 'NFF', type: 'text' },
+  { key: 'failOnFit', label: 'Fail Fit', type: 'text' },
+  { key: 'unused', label: 'Unused', type: 'text' },
+  { key: 'earlyRemoval', label: 'Early Rem.', type: 'text' },
+  { key: 'costTotal', label: 'Cost €', type: 'eur' },
+];
+
+function renderRawTable() {
+  const filtered = applyFilters(state.orders);
+  const search = state.rawSearch;
+  let rows = filtered;
+  if (search) {
+    rows = rows.filter(o =>
+      Object.values(o).some(v => v != null && String(v).toLowerCase().includes(search))
+    );
+  }
+
+  // sort
+  if (state.rawSort.col) {
+    const col = state.rawSort.col;
+    const dir = state.rawSort.dir === 'asc' ? 1 : -1;
+    rows = [...rows].sort((a,b) => {
+      const va = a[col], vb = b[col];
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (typeof va === 'number') return (va - vb) * dir;
+      if (va instanceof Date) return (va - vb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+  }
+
+  document.getElementById('raw-count').textContent = `${rows.length} de ${state.orders.length} filas`;
+
+  // Header
+  let thead = '<tr>';
+  RAW_COLS.forEach(c => {
+    let cls = '';
+    if (state.rawSort.col === c.key) cls = state.rawSort.dir === 'asc' ? 'sorted-asc' : 'sorted';
+    thead += `<th class="${cls}" data-col="${c.key}">${c.label}</th>`;
+  });
+  thead += '</tr>';
+  document.getElementById('raw-thead').innerHTML = thead;
+
+  // Body
+  let tbody = '';
+  rows.forEach(o => {
+    tbody += '<tr>';
+    RAW_COLS.forEach(c => {
+      const v = o[c.key];
+      tbody += renderCell(v, c);
+    });
+    tbody += '</tr>';
+  });
+  if (rows.length === 0) tbody = `<tr><td colspan="${RAW_COLS.length}" class="empty-state">Sin filas que coincidan</td></tr>`;
+  document.getElementById('raw-tbody').innerHTML = tbody;
+
+  // attach sort listeners
+  document.querySelectorAll('#raw-thead th').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (state.rawSort.col === col) {
+        state.rawSort.dir = state.rawSort.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.rawSort.col = col;
+        state.rawSort.dir = 'asc';
+      }
+      renderRawTable();
+    });
+  });
+}
+
+function renderCell(v, col) {
+  if (v == null || v === '') return '<td style="color:var(--text-3);">—</td>';
+  if (col.type === 'mono') return `<td class="mono">${esc(v)}</td>`;
+  if (col.type === 'num') return `<td class="num">${v}</td>`;
+  if (col.type === 'eur') return `<td class="num">${v > 0 ? '€' + v.toFixed(2) : '—'}</td>`;
+  if (col.type === 'date') return `<td>${v instanceof Date ? v.toISOString().slice(0,10) : esc(v)}</td>`;
+  if (col.type === 'badge-status') {
+    const cls = { 'OPEN': 'badge-open', 'CLOSED': 'badge-closed', 'IN TRANSIT': 'badge-transit', 'PENDING': 'badge-preload', 'CANCELED': 'badge-canceled', 'CANCELLED': 'badge-canceled' }[v] || 'badge-canceled';
+    return `<td><span class="badge ${cls}">${esc(v)}</span></td>`;
+  }
+  if (col.type === 'badge-priority') return `<td>${priorityBadge(v)}</td>`;
+  return `<td>${esc(v)}</td>`;
+}
+
+function esc(v) {
+  if (v == null) return '';
+  return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+</script>
+</body>
+</html>
